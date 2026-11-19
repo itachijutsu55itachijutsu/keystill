@@ -1,10 +1,35 @@
 const $ = id => document.getElementById(id);
-const passages = [
+const everyday = [
   'Morning light spills across the desk. A pencil rolls toward an open notebook and settles beside a small sketch of the garden. Beyond the window a sparrow lands on the fence.',
   'The last train glides out of the station as the sky turns blue. A baker across the street hangs a paper sign in the window and opens the door to the morning air.',
   'A narrow trail follows the river past a quiet field. Flat stones catch the light along the bank. A silver fish breaks the surface and leaves a ring behind.',
   'Rain taps against the studio roof while two friends sort their prints. Each sheet holds a different shade of green. They hang the brightest one beside the door.'
 ];
+const tracks = {
+  "punctuation": [
+    "Wait, said the editor. Which title fits best: A Quiet Room, or The Open Door? She read both aloud before choosing.",
+    "The note on the fridge read, \"Leave a light on.\" By dusk, every window on the block was glowing.",
+    "A single comma changed the invitation. Instead of bringing bread, cheese and fruit, Lee brought bread, cheese, and a fruit tart.",
+    "Did you pack the map? I checked my coat, the desk, and the kitchen shelf. There it was: tucked inside yesterday's paper.",
+    "Sam's draft had three parts: the arrival, the delay, and the journey home. He cut the last paragraph twice.",
+    "One bag held pens; another held clips. The smallest pocket, hidden under the flap, held a key."
+  ],
+  "numbers": [
+    "Order 714 contains 12 notebooks at $3.50 each. The packing slip lists shelf B4 and a total of $42.00.",
+    "Train 208 leaves at 7:45 and arrives at 9:10. Our seats are in row 14, just past the cafe.",
+    "At 8:05 the counter showed 125 entries. By 8:35 it had reached 149, a gain of 24 in half an hour.",
+    "Label the first box A-17 and the next one B-24. Each should weigh 2.5 pounds before the seal goes on.",
+    "The reading log starts on page 36. Read through page 48, then enter 13 in the total column.",
+    "Our recipe uses 250 grams of flour and 125 grams of butter. Bake the small batch for 18 minutes."
+  ],
+  "everyday": [
+    "A red umbrella stood beside the library door. Its owner had left a folded note inside the handle so the next visitor could return it.",
+    "The market closed early when a gentle rain crossed the square. One last customer tucked a bunch of mint into her canvas bag.",
+    "Before the guests arrived, Liam moved the table near the window. The evening light made even the plain white cups look warm.",
+    "The bicycle bell rang twice outside the gate. Ella set down her brush and leaned out to see who had come."
+  ]
+};
+tracks.everyday = everyday.concat(tracks.everyday);
 const input = $('entry');
 let seconds = 180, limit, source, previous, attempts, mistakes, missed, start, timer, result, drillWords, offset = 0;
 let chars = [], expected = [], records = [];
@@ -16,7 +41,7 @@ for (const letters of ['QWERTYUIOP','ASDFGHJKL','ZXCVBNM']) {
   $('keyboard').append(row);
 }
 function addPassage() {
-  const chunk = drillWords ? drillWords.join(' ') : passages[offset++ % passages.length];
+  const chunk = drillWords ? drillWords.join(' ') : tracks[$('track').value][offset++ % tracks[$('track').value].length];
   const addition = chunk + ' ';
   source += addition;
   for (const word of chunk.split(' ')) {
@@ -27,7 +52,7 @@ function addPassage() {
   }
 }
 function reset(words=null) {
-  clearInterval(timer);drillWords=words;limit=words?60:seconds;
+  clearInterval(timer);$('track').disabled=!!words;drillWords=words;limit=words?60:seconds;
   start=null;result=null;source='';chars=[];expected=[];previous='';attempts=0;mistakes=0;missed=new Set();
   input.value='';input.disabled=false;$('goal').disabled=false;$('times').hidden=!!words;
   $('lines').replaceChildren();$('lines').style.transform='';addPassage();addPassage();chars[0].className='caret';
@@ -46,8 +71,8 @@ function update() {
   if(start!==null && elapsed>=limit && !result) finish(data);
 }
 function finish(data) {
-  clearInterval(timer);input.disabled=true;$('goal').disabled=false;
-  const target=parseInt($('goal').value);result={...data,date:new Date().toISOString(),target,limit,mode:$('round').textContent};
+  clearInterval(timer);input.disabled=true;$('track').disabled=false;$('goal').disabled=false;
+  const target=parseInt($('goal').value);result={...data,date:new Date().toISOString(),target,limit,mode:drillWords?'Missed-word practice':$('track').selectedOptions[0].textContent};
   records.unshift(result);records=records.slice(0,50);
   try{localStorage.setItem('keystill-history',JSON.stringify(records));}catch{}
   $('status').textContent='Session complete';$('summary').textContent=data.wpm>=target?'Target reached at '+data.wpm+' WPM':(target-data.wpm)+' WPM to your target';
@@ -58,7 +83,7 @@ input.onpaste=input.ondrop=e=>e.preventDefault();
 input.oninput=()=>{
   if(result)return;
   if(start!==null && performance.now()-start>=limit*1000){input.value=previous;update();return;}
-  const value=input.value;if(start===null && value.length){start=performance.now();timer=setInterval(update,150);$('goal').disabled=true;$('status').textContent='Session in progress';}
+  const value=input.value;if(start===null && value.length){start=performance.now();$('track').disabled=true;timer=setInterval(update,150);$('goal').disabled=true;$('status').textContent='Session in progress';}
   while(value.length+70>=source.length)addPassage();
   let same=0;while(same<previous.length && same<value.length && value[same]===previous[same])same++;
   for(let i=same;i<value.length;i++){attempts++;if(value[i]!==source[i]){mistakes++;missed.add(expected[i]);}}
@@ -86,5 +111,13 @@ function showHistory(show){
   $('records').replaceChildren();if(!records.length)$('records').textContent='Finish a timed session to see your first result here.';
   for(const r of records){const d=document.createElement('div');d.className='record';d.textContent=new Date(r.date).toLocaleDateString()+' · '+r.mode+' · '+r.wpm+' WPM · '+r.accuracy+'% accuracy · '+r.limit/60+' min';$('records').append(d);}
 }
+$('track').onchange=()=>{offset=0;reset();input.focus();};
+$('clear').onclick=()=>{
+  if (!records.length || !confirm('Delete all typing results saved in this browser?')) return;
+  try { localStorage.removeItem('keystill-history'); }
+  catch { $('clearStatus').textContent='Browser storage is unavailable. Clear site data in your browser settings.'; return; }
+  records=[];showHistory(true);$('clearStatus').textContent='Saved history cleared.';
+};
 $('past').onclick=()=>showHistory(true);$('studio').onclick=()=>showHistory(false);
 reset();
+
