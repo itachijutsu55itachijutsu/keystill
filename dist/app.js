@@ -76,6 +76,15 @@ function finish(data) {
   records.unshift(result);records=records.slice(0,50);
   try{localStorage.setItem('keystill-history',JSON.stringify(records));}catch{}
   $('status').textContent='Session complete';$('summary').textContent=data.wpm>=target?'Target reached at '+data.wpm+' WPM':(target-data.wpm)+' WPM to your target';
+  const next = $('coaching');
+  if (data.accuracy < 95) {
+    const examples = [...missed].slice(0, 3).join(', ');
+    next.textContent = 'Work on accuracy first. In the missed-word drill, slow down for ' + examples + '. Type each word cleanly before picking up speed. Then repeat the original test and compare accuracy.';
+  } else if (data.wpm < target) {
+    next.textContent = 'Your accuracy is steady. For a ' + target + ' WPM pace, aim for about ' + Math.round(target * 5 / 4) + ' correct characters every 15 seconds. In your next round, glance at the next word as you finish the current one. Compare results at the same duration.';
+  } else {
+    next.textContent = 'Try to repeat this pace on a fresh passage with the same timer. If the second score holds, try a longer session and check whether accuracy stays steady.';
+  }
   $('drill').hidden=!missed.size;$('out').hidden=false;$('out').scrollIntoView({block:'nearest'});
 }
 input.onbeforeinput=e=>{if(e.inputType==='insertFromPaste'||e.inputType==='insertFromDrop') e.preventDefault();};
